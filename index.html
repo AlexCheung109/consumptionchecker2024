@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<title>Consumption Checker</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Ensure using the latest Select2 library -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+<style>
+/* General Styles */
+body {
+font-family: Arial, sans-serif;
+margin: 20px;
+padding: 20px;
+background-color: #f5f5f5;
+}
+.container {
+max-width: 1400px;
+margin: 0 auto;
+background-color: white;
+padding: 20px;
+border-radius: 8px;
+box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.search-form {
+background: #ffffff;
+padding: 20px;
+border-radius: 5px;
+margin-bottom: 20px;
+border: 1px solid #ddd;
+}
+.form-group {
+margin-bottom: 15px;
+}
+label {
+display: block;
+margin-bottom: 5px;
+font-weight: bold;
+color: #333;
+}
+input, select {
+width: 100%;
+padding: 8px;
+border: 1px solid #ddd;
+border-radius: 4px;
+box-sizing: border-box;
+}
+.button-group {
+display: flex;
+gap: 10px;
+margin-top: 20px;
+}
+button {
+padding: 10px 20px;
+border: none;
+border-radius: 4px;
+cursor: pointer;
+font-size: 16px;
+transition: background-color 0.3s;
+}
+.search-button {
+background: #4CAF50;
+color: white;
+}
+.search-button:hover {
+background: #45a049;
+}
+.clear-button {
+background: #f44336;
+color: white;
+}
+.clear-button:hover {
+background: #d32f2f;
+}
+table {
+width: 100%;
+border-collapse: collapse;
+margin-top: 20px;
+background: white;
+}
+th, td {
+border: 1px solid #ddd;
+padding: 12px 8px;
+text-align: left;
+}
+th {
+background-color: #4CAF50;
+color: white;
+position: sticky;
+top: 0;
+}
+tr:nth-child(even) {
+background-color: #f9f9f9;
+}
+tr:hover {
+background-color: #f5f5f5;
+}
+.loading-overlay {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(255, 255, 255, 0.9);
+display: flex;
+justify-content: center;
+align-items: center;
+z-index: 1000;
+flex-direction: column;
+}
+.loading-content {
+text-align: center;
+background: white;
+padding: 20px;
+border-radius: 8px;
+box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+width: 300px;
+}
+#progressContainer, #queryProgressContainer {
+width: 100%;
+background-color: #f3f3f3;
+border-radius: 5px;
+margin-top: 10px;
+}
+#progressBar, #queryProgressBar {
+width: 0%;
+height: 20px;
+background-color: #4CAF50;
+border-radius: 5px;
+transition: width 0.4s;
+}
+#progressText, #queryProgressText {
+margin-top: 10px;
+font-weight: bold;
+}
+#debug-info {
+margin-top: 20px;
+padding: 10px;
+background-color: #f8f9fa;
+border: 1px solid #ddd;
+border-radius: 4px;
+font-family: monospace;
+white-space: pre-wrap;
+display: none;
+}
+.select2-container {
+width: 100% !important;
+}
+.filter-input {
+width: 100%;
+padding: 4px;
+border: 1px solid #ddd;
+border-radius: 4px;
+font-size: 12px;
+box-sizing: border-box;
+}
+.sort-button {
+padding: 4px 8px;
+background-color: #007bff;
+color: white;
+border: none;
+border-radius: 4px;
+cursor: pointer;
+font-size: 12px;
+margin-left: 5px;
+}
+.sort-button:hover {
+background-color: #0056b3;
+}
+.highlight {
+background-color: #fff3cd;
+}
+.no-results {
+text-align: center;
+padding: 20px;
+color: #666;
+}
+.details-month {
+font-weight: bold;
+background-color: #f8f8f8;
+}
+.ward-usage {
+margin-left: 20px;
+}
+.ward-summary, .issue-type-summary, .item-code-summary {
+background-color: #e9ecef;
+cursor: pointer;
+font-weight: bold;
+}
+.ward-summary:hover, .issue-type-summary:hover, .item-code-summary:hover {
+background-color: #dcdcdc;
+}
+.ward-details, .issue-type-details, .item-code-details, .month-details {
+background-color: #ffffff;
+}
+.ward-details.hidden, .issue-type-details.hidden, .item-code-details.hidden, .month-details.hidden {
+display: none;
+}
+.arrow {
+display: inline-block;
+transition: transform 0.2s;
+margin-right: 5px;
+}
+.expanded .arrow {
+transform: rotate(90deg);
+}
+.transactions-table, .monthly-usage-table {
+width: 100%;
+}
+.ward-details-table, .monthly-usage-table {
+width: 100%;
+margin-top: 10px;
+}
+.ward-details-table th, .monthly-usage-table th {
+background-color: #e9ecef;
+font-weight: bold;
+}
+</style>
+</head>
+<body>
+<!-- Loading Progress Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+<div class="loading-content">
+<div id="progressText">Loading...</div>
+<div id="progressContainer">
+<div id="progressBar"></div>
+</div>
+</div>
+</div>
+
+<!-- Query Progress Overlay -->
+<div id="queryOverlay" class="loading-overlay" style="display: none;">
+<div class="loading-content">
+<div id="queryProgressText">Querying...</div>
+<div id="queryProgressContainer">
+<div id="queryProgressBar"></div>
+</div>
+</div>
+</div>
+
+<div id="mainContent" class="container" style="display: none;">
+<h1>Consumption Checker</h1>
+
+<div class="search-form">
+<div class="form-group">
+<label for="searchType">Search Type:</label>
+<select id="searchType">
+<option value="ward">By Ward</option>
+<option value="item">By Item Code</option>
+</select>
+</div>
+
+<div class="form-group" id="itemCodeGroup" style="display: none;">
+<label for="itemCodes">Item Codes (separated by commas):</label>
+<input type="text" id="itemCodes" placeholder="e.g., ALCO28, CHLO39, SODI16">
+</div>
+
+<div class="form-group">
+<label for="wards">Wards:</label>
+<select id="wards" multiple="multiple">
+<option value="all">All Wards</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="startDate">Start Date:</label>
+<input type="date" id="startDate">
+</div>
+
+<div class="form-group">
+<label for="endDate">End Date:</label>
+<input type="date" id="endDate">
+</div>
+
+<div class="button-group">
+<button class="search-button" onclick="search()">Search</button>
+<button class="clear-button" onclick="clearForm()">Clear</button>
+</div>
+</div>
+
+<div id="debug-info"></div>
+
+<div id="results">
+<table id="resultsTable">
+<thead>
+<!-- Table headers will be dynamically generated by JavaScript -->
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<script>
+// Global Variables
+let transactionData = [];
+let sortOrderDescending = true; // Control sort order
+let currentDateRangeDays = 28; // Default to 28 days; updated on search
+
+// Issue Type Full Names
+const ISSUE_TYPE_FULL_NAMES = {
+'A': 'ADU Item',
+'K': 'E Kit/A Kit Item',
+'O': 'Other',
+'E': 'E-Trolley Item',
+'D': 'Dangerous Drug',
+'I': 'Special Fluids',
+'T': 'Trolley Item',
+'W': 'Ward Stock Item'
+};
+
+// Update progress bar function
+function updateProgressBar(containerId, percent) {
+const progressBar = document.querySelector(`#${containerId} #progressBar`);
+const progressText = document.querySelector(`#${containerId} #${containerId.includes('query') ? 'queryProgressText' : 'progressText'}`);
+if (progressBar && progressText) {
+progressBar.style.width = `${percent}%`;
+progressText.textContent = containerId.includes('query') ? `Querying... ${percent}%` : `Loading... ${percent}%`;
+}
+}
+
+// Show progress overlay
+function showProgressOverlay(overlayId) {
+document.getElementById(overlayId).style.display = 'flex';
+}
+
+// Hide progress overlay
+function hideProgressOverlay(overlayId) {
+document.getElementById(overlayId).style.display = 'none';
+}
+
+// Simulate progress growth
+function simulateProgress(containerId, duration, callback) {
+let progress = 0;
+const interval = 100; // milliseconds
+const increment = 100 / (duration / interval);
+const progressInterval = setInterval(() => {
+progress += increment;
+if (progress >= 100) {
+progress = 100;
+clearInterval(progressInterval);
+callback && callback();
+}
+updateProgressBar(containerId, Math.floor(progress));
+}, interval);
+}
+
+function showLoadingMessage() {
+showProgressOverlay('loadingOverlay');
+simulateProgress('progressContainer', 2000, () => {
+// Simulate loading completion; actual data processing will hide it
+});
+}
+
+function hideLoadingMessage() {
+hideProgressOverlay('loadingOverlay');
+}
+
+function showQueryProgress() {
+showProgressOverlay('queryOverlay');
+simulateProgress('queryProgressContainer', 2000, () => {
+// Simulate query completion; actual data processing will hide it
+});
+}
+
+function hideQueryProgress() {
+hideProgressOverlay('queryOverlay');
+}
+
+function updateDebugInfo(info) {
+const debugDiv = document.getElementById('debug-info');
+debugDiv.style.display = 'block';
+const timestamp = new Date().toISOString();
+const debugText = typeof info === 'string' ? info : JSON.stringify(info, null, 2);
+debugDiv.innerHTML += `<div>[${timestamp}] ${debugText}</div>`;
+}
+
+function parseExcelDate(excelDate) {
+if (!excelDate) return null;
+
+if (typeof excelDate === 'number') {
+const date = new Date((excelDate - (25567 + 2)) * 86400 * 1000);
+return date;
+}
+
+if (typeof excelDate === 'string') {
+return new Date(excelDate);
+}
+
+return null;
+}
+
+function formatMonthDisplay(monthKey) {
+const [year, month] = monthKey.split('-');
+const date = new Date(parseInt(year), parseInt(month) - 1);
+return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+}
+
+async function initializeApp() {
+try {
+showLoadingMessage();
+updateDebugInfo('Starting data load...');
+
+// Fetch the Excel file from GitHub repository
+const githubRawUrl = 'https://raw.githubusercontent.com/AlexCheung109/consumptionchecker2024/main/data.xlsx';
+const response = await fetch(githubRawUrl);
+if (!response.ok) {
+throw new Error(`HTTP error! Status: ${response.status}`);
+}
+const arrayBuffer = await response.arrayBuffer();
+const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+transactionData = XLSX.utils.sheet_to_json(firstSheet, {
+raw: true,
+dateNF: 'yyyy-mm-dd',
+cellDates: true
+});
+
+// Clean and format data
+transactionData = transactionData.map(row => ({
+date: parseExcelDate(row['Date']),
+itemCode: (row['Item Code'] || '').toString().trim().toUpperCase(),
+itemFullName: (row['Item Full Name'] || '').toString().trim(),
+qty: Math.abs(parseFloat(row['QTY'] || 0)),
+uom: (row['UOM'] || '').toString().trim(),
+ward: (row['Ward'] || '').toString().trim(),
+issueType: (row['Issue Type'] || '').toString().trim().toUpperCase(),
+unitPrice: parseFloat(row['Unit Price'] || 0),
+drugPrice: parseFloat(row['Drug Price'] || 0),
+reference: (row['Reference'] || '').toString().trim(),
+chargedBy: (row['Charged By'] || '').toString().trim().toLowerCase() // New Charged By field
+})).filter(row => row.date && row.ward && row.issueType);
+
+const wardCodesSet = new Set();
+transactionData.forEach(row => wardCodesSet.add(row.ward));
+
+const wardSelect = document.getElementById('wards');
+const fragment = document.createDocumentFragment();
+
+Array.from(wardCodesSet)
+.sort((a, b) => a.localeCompare(b)) // Sort A-Z
+.forEach(code => {
+fragment.appendChild(new Option(code, code));
+});
+
+wardSelect.innerHTML = '<option value="all">All Wards</option>';
+wardSelect.appendChild(fragment);
+
+$('#wards').select2({
+placeholder: "Select Wards",
+allowClear: true,
+minimumInputLength: 0,
+minimumResultsForSearch: 10,
+closeOnSelect: false
+});
+
+$('#wards').val(['all']).trigger('change');
+
+const today = new Date();
+const oneMonthAgo = new Date(today);
+oneMonthAgo.setMonth(today.getMonth() - 1);
+
+document.getElementById('endDate').value = today.toISOString().split('T')[0];
+document.getElementById('startDate').value = oneMonthAgo.toISOString().split('T')[0];
+
+hideLoadingMessage();
+document.getElementById('mainContent').style.display = 'block';
+updateDebugInfo('Initialization complete.');
+
+// Initialize search type toggle
+document.getElementById('searchType').addEventListener('change', function() {
+const searchType = this.value;
+document.getElementById('itemCodeGroup').style.display = searchType === 'item' ? 'block' : 'none';
+});
+
+// Add table click event delegation
+const resultsTable = document.getElementById('resultsTable');
+resultsTable.addEventListener('click', handleRowClick);
+
+} catch (error) {
+console.error('Error:', error);
+updateDebugInfo(`Error during initialization: ${error.message}`);
+hideLoadingMessage();
+alert('Error loading data: ' + error.message);
+}
+}
+
+function toggleSortOrder() {
+sortOrderDescending = !sortOrderDescending;
+const sortButton = document.getElementById('sortButton');
+if (sortButton) {
+sortButton.textContent = `Sort: ${sortOrderDescending ? 'A-Z' : 'Z-A'}`;
+}
+// Re-run search to update sorted results
+search();
+}
+
+async function search() {
+try {
+showQueryProgress();
+updateDebugInfo('Starting search...');
+
+const searchType = document.getElementById('searchType').value;
+const itemCodesInput = document.getElementById('itemCodes').value.trim();
+const selectedWards = $('#wards').val();
+let startDate = new Date(document.getElementById('startDate').value);
+let endDate = new Date(document.getElementById('endDate').value);
+
+startDate.setHours(0, 0, 0, 0);
+endDate.setHours(23, 59, 59, 999);
+
+currentDateRangeDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) || 1;
+
+const allWardsSelected = selectedWards.includes('all');
+
+let filteredData = transactionData.filter(row => {
+const rowDate = row.date;
+if (!rowDate || rowDate < startDate || rowDate > endDate) return false;
+
+const rowWard = row.ward;
+
+if (!allWardsSelected && !selectedWards.includes(rowWard)) return false;
+
+if (searchType === 'item' && itemCodesInput) {
+const itemCodes = itemCodesInput.split(',').map(code => code.trim().toUpperCase());
+return itemCodes.includes(row.itemCode);
+}
+
+return true;
+});
+
+if (filteredData.length === 0) {
+const tbody = document.querySelector('#resultsTable tbody');
+const thead = document.querySelector('#resultsTable thead');
+thead.innerHTML = '';
+tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No data found for the selected criteria.</td></tr>';
+hideQueryProgress();
+return;
+}
+
+// Display results based on search type
+if (searchType === 'ward') {
+displayWardSearchResults(filteredData);
+} else {
+displayItemCodeSearchResults(filteredData);
+}
+
+hideQueryProgress();
+updateDebugInfo('Search completed.');
+
+} catch (error) {
+console.error('Search Error:', error);
+updateDebugInfo(`Error during search: ${error.message}`);
+hideQueryProgress();
+alert('Error during search: ' + error.message);
+}
+}
+
+function displayWardSearchResults(filteredData) {
+const thead = document.querySelector('#resultsTable thead');
+thead.innerHTML = `
+<tr>
+<th>Ward</th>
+<th>Issue Types</th>
+<th>Order Number</th>
+<th>Issued Item Quantity</th>
+<th>Total Cost</th>
+</tr>
+`;
+
+const tbody = document.querySelector('#resultsTable tbody');
+tbody.innerHTML = '';
+
+// Group by Ward
+const wardDataMap = {};
+
+filteredData.forEach(row => {
+const ward = row.ward;
+if (!wardDataMap[ward]) {
+wardDataMap[ward] = {
+issueTypes: new Set(),
+orderReferences: new Set(), // Unique References
+issuedItemQty: 0,
+itemCodes: new Set(),
+totalCost: 0
+};
+}
+wardDataMap[ward].issueTypes.add(row.issueType);
+wardDataMap[ward].orderReferences.add(row.reference);
+wardDataMap[ward].issuedItemQty += row.qty;
+wardDataMap[ward].itemCodes.add(row.itemCode);
+wardDataMap[ward].totalCost += row.unitPrice * row.qty;
+});
+
+// Sort wards alphabetically
+const sortedWards = Object.keys(wardDataMap).sort((a, b) => a.localeCompare(b));
+
+sortedWards.forEach(ward => {
+const data = wardDataMap[ward];
+const issueTypesArray = Array.from(data.issueTypes).sort().map(type => `${type} (${ISSUE_TYPE_FULL_NAMES[type] || 'Unknown'})`).join('<br>');
+const orderNumber = data.orderReferences.size;
+const issuedItemQty = data.issuedItemQty.toFixed(2);
+const totalCost = `$${data.totalCost.toFixed(2)}`;
+const row = document.createElement('tr');
+row.classList.add('ward-summary');
+row.dataset.ward = ward;
+row.innerHTML = `
+<td>${ward}</td>
+<td>${issueTypesArray}</td>
+<td>${orderNumber}</td>
+<td>${issuedItemQty}</td>
+<td>${totalCost}</td>
+`;
+tbody.appendChild(row);
+});
+}
+
+function displayItemCodeSearchResults(filteredData) {
+const thead = document.querySelector('#resultsTable thead');
+thead.innerHTML = `
+<tr>
+<th>
+Item Code
+<button id="sortButton" class="sort-button" onclick="toggleSortOrder()">Sort: ${sortOrderDescending ? 'A-Z' : 'Z-A'}</button>
+</th>
+<th>Item Full Name</th>
+<th>Total Quantity</th>
+<th>Total Cost</th>
+</tr>
+<tr class="filter-row">
+<th><input type="text" id="itemCodeFilter" placeholder="Filter Item Code" class="filter-input"></th>
+<th></th>
+<th><input type="text" id="totalQtyFilter" placeholder="Filter Total Quantity" class="filter-input"></th>
+<th><input type="text" id="totalCostFilter" placeholder="Filter Total Cost" class="filter-input"></th>
+</tr>
+`;
+
+const tbody = document.querySelector('#resultsTable tbody');
+tbody.innerHTML = '';
+
+// Group by Item Code
+const itemDataMap = {};
+
+filteredData.forEach(row => {
+const itemCode = row.itemCode;
+if (!itemDataMap[itemCode]) {
+itemDataMap[itemCode] = {
+itemFullName: row.itemFullName,
+totalQty: 0,
+orderReferences: new Set(),
+totalCost: 0,
+transactions: []
+};
+}
+itemDataMap[itemCode].totalQty += row.qty;
+itemDataMap[itemCode].orderReferences.add(row.reference);
+itemDataMap[itemCode].totalCost += row.unitPrice * row.qty;
+itemDataMap[itemCode].transactions.push(row);
+});
+
+// Sort Item Codes
+const sortedItems = Object.keys(itemDataMap).sort((a, b) => {
+return sortOrderDescending ? a.localeCompare(b) : b.localeCompare(a);
+});
+
+sortedItems.forEach(itemCode => {
+const data = itemDataMap[itemCode];
+const totalQty = data.totalQty.toFixed(2);
+const totalCost = `$${data.totalCost.toFixed(2)}`;
+const row = document.createElement('tr');
+row.classList.add('item-code-summary');
+row.dataset.itemcode = itemCode;
+row.innerHTML = `
+<td>${itemCode}</td>
+<td>${data.itemFullName}</td>
+<td>${totalQty}</td>
+<td>${totalCost}</td>
+`;
+tbody.appendChild(row);
+});
+}
+
+function handleRowClick(e) {
+const row = e.target.closest('tr');
+
+if (!row) return;
+
+// Handle Ward Summary Click
+if (row.classList.contains('ward-summary')) {
+const ward = row.dataset.ward;
+toggleDetailsRow('ward-details', row, () => generateWardDetails(ward));
+return;
+}
+
+// Handle Issue Type Summary Click
+if (row.classList.contains('issue-type-summary')) {
+const ward = row.dataset.ward;
+const issueType = row.dataset.issuetype;
+toggleDetailsRow('issue-type-details', row, () => generateIssueTypeDetails(ward, issueType));
+return;
+}
+
+// Handle Item Code Summary Click
+if (row.classList.contains('item-code-summary')) {
+const itemCode = row.dataset.itemcode;
+toggleDetailsRow('item-code-details', row, () => generateItemCodeDetails(itemCode));
+return;
+}
+
+// Handle Month Details Click (No action needed)
+if (row.classList.contains('month-details')) {
+// No further action required
+return;
+}
+}
+
+function toggleDetailsRow(detailClass, row, generateDetails) {
+let selector = '';
+if (detailClass === 'ward-details') {
+selector = `tr[data-parent-ward="${row.dataset.ward}"]`;
+} else if (detailClass === 'issue-type-details') {
+selector = `tr[data-parent-ward="${row.dataset.ward}"][data-issuetype="${row.dataset.issuetype}"]`;
+} else if (detailClass === 'item-code-details') {
+selector = `tr[data-parent-itemcode="${row.dataset.itemcode}"]`;
+}
+
+const existingDetails = document.querySelector(selector);
+const parent = row.parentNode;
+const referenceNode = row.nextSibling;
+
+if (existingDetails) {
+existingDetails.remove();
+row.classList.toggle('expanded');
+} else {
+// Remove any existing expanded rows to maintain single expansion per level
+const existingExpanded = parent.querySelectorAll('tr.expanded');
+existingExpanded.forEach(expandedRow => {
+expandedRow.classList.remove('expanded');
+const detailRow = expandedRow.nextSibling;
+if (detailRow && (detailRow.classList.contains('ward-details') || detailRow.classList.contains('issue-type-details') || detailRow.classList.contains('item-code-details'))) {
+detailRow.remove();
+}
+});
+
+row.classList.toggle('expanded');
+const detailsRow = generateDetails();
+
+if (referenceNode) {
+parent.insertBefore(detailsRow, referenceNode);
+} else {
+parent.appendChild(detailsRow);
+}
+}
+}
+
+function generateWardDetails(ward) {
+// Filter data for this ward
+const wardData = transactionData.filter(r => r.ward === ward);
+
+// Aggregate Issue Types
+const issueTypeMap = {};
+wardData.forEach(r => {
+const type = r.issueType;
+if (!issueTypeMap[type]) {
+issueTypeMap[type] = {
+fullName: ISSUE_TYPE_FULL_NAMES[type] || 'Unknown Type',
+orderReferences: new Set(),
+issuedItemQty: 0,
+itemCodes: new Set(),
+totalCost: 0,
+chargedByPharmacy: 0,
+chargedByEndUser: 0
+};
+}
+issueTypeMap[type].orderReferences.add(r.reference);
+issueTypeMap[type].issuedItemQty += r.qty;
+issueTypeMap[type].itemCodes.add(r.itemCode);
+issueTypeMap[type].totalCost += r.unitPrice * r.qty;
+
+if (type === 'T') {
+if (r.chargedBy === 'pharmacy') {
+issueTypeMap[type].chargedByPharmacy += r.unitPrice * r.qty;
+} else if (r.chargedBy === 'end user') {
+issueTypeMap[type].chargedByEndUser += r.unitPrice * r.qty;
+}
+}
+});
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('ward-details');
+detailsRow.setAttribute('data-parent-ward', ward);
+detailsRow.innerHTML = `
+<td colspan="5">
+<table class="issue-type-details-table">
+<thead>
+<tr>
+<th>Issue Type</th>
+<th>Order Number</th>
+<th>Issued Item Quantity</th>
+<th>Item Code Quantity</th>
+<th>Avg Orders per Day</th>
+<th>Avg Items per Order</th>
+<th>Total Cost</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(issueTypeMap).sort().map(type => {
+const data = issueTypeMap[type];
+const orderNumber = data.orderReferences.size;
+const issuedItemQty = data.issuedItemQty.toFixed(2);
+const itemCodeCount = data.itemCodes.size;
+const avgOrdersPerDay = (orderNumber / Math.max(currentDateRangeDays, 1)).toFixed(2);
+const avgItemsPerOrder = orderNumber > 0 ? (data.issuedItemQty / orderNumber).toFixed(2) : '0.00';
+let totalCostDisplay = `$${data.totalCost.toFixed(2)}`;
+
+if (type === 'T') {
+totalCostDisplay = `
+End User: $${data.chargedByEndUser.toFixed(2)}<br>
+Pharmacy: $${data.chargedByPharmacy.toFixed(2)}
+`;
+}
+
+return `
+<tr class="issue-type-summary" data-ward="${ward}" data-issuetype="${type}">
+<td>${type} (${data.fullName})</td>
+<td>${orderNumber}</td>
+<td>${issuedItemQty}</td>
+<td>${itemCodeCount}</td>
+<td>${avgOrdersPerDay}</td>
+<td>${avgItemsPerOrder}</td>
+<td>${type === 'T' ? totalCostDisplay : `$${data.totalCost.toFixed(2)}`}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+function generateIssueTypeDetails(ward, issueType) {
+// Filter data for this ward and issue type
+const wardIssueData = transactionData.filter(r => r.ward === ward && r.issueType === issueType);
+
+// Aggregate Item Codes
+const itemCodeMap = {};
+wardIssueData.forEach(r => {
+const code = r.itemCode;
+if (!itemCodeMap[code]) {
+itemCodeMap[code] = {
+itemFullName: r.itemFullName,
+unitPrice: r.unitPrice,
+totalQty: 0,
+orderCount: 0,
+totalCost: 0,
+chargedByPharmacy: 0,
+chargedByEndUser: 0,
+uom: r.uom
+};
+}
+itemCodeMap[code].totalQty += r.qty;
+itemCodeMap[code].orderCount += 1;
+itemCodeMap[code].totalCost += r.unitPrice * r.qty;
+
+if (issueType === 'T') {
+if (r.chargedBy === 'pharmacy') {
+itemCodeMap[code].chargedByPharmacy += r.unitPrice * r.qty;
+} else if (r.chargedBy === 'end user') {
+itemCodeMap[code].chargedByEndUser += r.unitPrice * r.qty;
+}
+}
+});
+
+// Calculate statistics
+for (let code in itemCodeMap) {
+const data = itemCodeMap[code];
+data.avgUsagePerDay = (data.totalQty / Math.max(currentDateRangeDays, 1)).toFixed(2);
+data.avgOrderFrequency = data.orderCount > 0 ? (currentDateRangeDays / data.orderCount).toFixed(2) : '0.00';
+}
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('issue-type-details');
+detailsRow.setAttribute('data-parent-ward', ward);
+detailsRow.setAttribute('data-parent-issuetype', issueType);
+detailsRow.innerHTML = `
+<td colspan="7">
+<table class="item-code-details-table">
+<thead>
+<tr>
+<th>Item Code</th>
+<th>Item Full Name</th>
+<th>Unit Price</th>
+<th>Total Quantity</th>
+<th>Avg Daily Quantity</th>
+<th>Order Frequency / Period</th>
+<th>Avg Order Frequency (Days)</th>
+<th>Total Cost</th>
+<th>UOM</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(itemCodeMap).sort().map(code => {
+const data = itemCodeMap[code];
+let totalCostDisplay = `$${data.totalCost.toFixed(2)}`;
+
+if (issueType === 'T') {
+totalCostDisplay = `
+End User: $${data.chargedByEndUser.toFixed(2)}<br>
+Pharmacy: $${data.chargedByPharmacy.toFixed(2)}
+`;
+}
+
+return `
+<tr class="item-code-summary" data-itemcode="${code}">
+<td>${code}</td>
+<td>${data.itemFullName}</td>
+<td>$${data.unitPrice.toFixed(2)}</td>
+<td>${data.totalQty.toFixed(2)}</td>
+<td>${data.avgUsagePerDay}</td>
+<td>${data.orderCount}</td>
+<td>${data.avgOrderFrequency}</td>
+<td>${issueType === 'T' ? totalCostDisplay : `$${data.totalCost.toFixed(2)}`}</td>
+<td>${data.uom}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+function generateItemCodeDetails(itemCode) {
+// Filter data for this item code
+const itemData = transactionData.filter(r => r.itemCode === itemCode);
+
+// Aggregate by month
+const monthUsageMap = {};
+itemData.forEach(r => {
+const monthKey = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+if (!monthUsageMap[monthKey]) {
+monthUsageMap[monthKey] = {
+usage: 0,
+orders: 0,
+totalCost: 0,
+uom: r.uom
+};
+}
+monthUsageMap[monthKey].usage += r.qty;
+monthUsageMap[monthKey].orders += 1;
+monthUsageMap[monthKey].totalCost += r.unitPrice * r.qty;
+});
+
+// Calculate monthly statistics
+for (let month in monthUsageMap) {
+monthUsageMap[month].avgUsage = (monthUsageMap[month].usage / currentDateRangeDays).toFixed(2);
+monthUsageMap[month].avgOrderFrequency = monthUsageMap[month].orders > 0 ? (currentDateRangeDays / monthUsageMap[month].orders).toFixed(2) : '0.00';
+}
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('item-code-details');
+detailsRow.setAttribute('data-parent-itemcode', itemCode);
+detailsRow.innerHTML = `
+<td colspan="9">
+<table class="monthly-usage-table">
+<thead>
+<tr>
+<th>Month</th>
+<th>Total Usage</th>
+<th>Avg Daily Usage</th>
+<th>Order Count</th>
+<th>Order Frequency</th>
+<th>Avg Order Frequency (Days)</th>
+<th>Total Cost</th>
+<th>UOM</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(monthUsageMap).sort().map(month => {
+const data = monthUsageMap[month];
+return `
+<tr class="month-details">
+<td>${formatMonthDisplay(month)}</td>
+<td>${data.usage.toFixed(2)}</td>
+<td>${data.avgUsage}</td>
+<td>${data.orders}</td>
+<td>${data.orders}</td>
+<td>${data.avgOrderFrequency}</td>
+<td>$${data.totalCost.toFixed(2)}</td>
+<td>${data.uom}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+function handleRowClick(e) {
+const row = e.target.closest('tr');
+
+if (!row) return;
+
+// Handle Ward Summary Click
+if (row.classList.contains('ward-summary')) {
+const ward = row.dataset.ward;
+toggleDetailsRow('ward-details', row, () => generateWardDetails(ward));
+return;
+}
+
+// Handle Issue Type Summary Click
+if (row.classList.contains('issue-type-summary')) {
+const ward = row.dataset.ward;
+const issueType = row.dataset.issuetype;
+toggleDetailsRow('issue-type-details', row, () => generateIssueTypeDetails(ward, issueType));
+return;
+}
+
+// Handle Item Code Summary Click
+if (row.classList.contains('item-code-summary')) {
+const itemCode = row.dataset.itemcode;
+toggleDetailsRow('item-code-details', row, () => generateItemCodeDetails(itemCode));
+return;
+}
+
+// Handle Month Details Click (No action needed)
+if (row.classList.contains('month-details')) {
+// No further action required
+return;
+}
+}
+
+function toggleDetailsRow(detailClass, row, generateDetails) {
+let selector = '';
+if (detailClass === 'ward-details') {
+selector = `tr[data-parent-ward="${row.dataset.ward}"]`;
+} else if (detailClass === 'issue-type-details') {
+selector = `tr[data-parent-ward="${row.dataset.ward}"][data-issuetype="${row.dataset.issuetype}"]`;
+} else if (detailClass === 'item-code-details') {
+selector = `tr[data-parent-itemcode="${row.dataset.itemcode}"]`;
+}
+
+const existingDetails = document.querySelector(selector);
+const parent = row.parentNode;
+const referenceNode = row.nextSibling;
+
+if (existingDetails) {
+existingDetails.remove();
+row.classList.toggle('expanded');
+} else {
+// Remove any existing expanded rows to maintain single expansion per level
+const existingExpanded = parent.querySelectorAll('tr.expanded');
+existingExpanded.forEach(expandedRow => {
+expandedRow.classList.remove('expanded');
+const detailRow = expandedRow.nextSibling;
+if (detailRow && (detailRow.classList.contains('ward-details') || detailRow.classList.contains('issue-type-details') || detailRow.classList.contains('item-code-details'))) {
+detailRow.remove();
+}
+});
+
+row.classList.toggle('expanded');
+const detailsRow = generateDetails();
+
+if (referenceNode) {
+parent.insertBefore(detailsRow, referenceNode);
+} else {
+parent.appendChild(detailsRow);
+}
+}
+}
+
+function generateWardDetails(ward) {
+// Filter data for this ward
+const wardData = transactionData.filter(r => r.ward === ward);
+
+// Aggregate Issue Types
+const issueTypeMap = {};
+wardData.forEach(r => {
+const type = r.issueType;
+if (!issueTypeMap[type]) {
+issueTypeMap[type] = {
+fullName: ISSUE_TYPE_FULL_NAMES[type] || 'Unknown Type',
+orderReferences: new Set(),
+issuedItemQty: 0,
+itemCodes: new Set(),
+totalCost: 0,
+chargedByPharmacy: 0,
+chargedByEndUser: 0
+};
+}
+issueTypeMap[type].orderReferences.add(r.reference);
+issueTypeMap[type].issuedItemQty += r.qty;
+issueTypeMap[type].itemCodes.add(r.itemCode);
+issueTypeMap[type].totalCost += r.unitPrice * r.qty;
+
+if (type === 'T') {
+if (r.chargedBy === 'pharmacy') {
+issueTypeMap[type].chargedByPharmacy += r.unitPrice * r.qty;
+} else if (r.chargedBy === 'end user') {
+issueTypeMap[type].chargedByEndUser += r.unitPrice * r.qty;
+}
+}
+});
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('ward-details');
+detailsRow.setAttribute('data-parent-ward', ward);
+detailsRow.innerHTML = `
+<td colspan="5">
+<table class="issue-type-details-table">
+<thead>
+<tr>
+<th>Issue Type</th>
+<th>Order Number</th>
+<th>Issued Item Quantity</th>
+<th>Item Code Quantity</th>
+<th>Avg Orders per Day</th>
+<th>Avg Items per Order</th>
+<th>Total Cost</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(issueTypeMap).sort().map(type => {
+const data = issueTypeMap[type];
+const orderNumber = data.orderReferences.size;
+const issuedItemQty = data.issuedItemQty.toFixed(2);
+const itemCodeCount = data.itemCodes.size;
+const avgOrdersPerDay = (orderNumber / Math.max(currentDateRangeDays, 1)).toFixed(2);
+const avgItemsPerOrder = orderNumber > 0 ? (data.issuedItemQty / orderNumber).toFixed(2) : '0.00';
+let totalCostDisplay = `$${data.totalCost.toFixed(2)}`;
+
+if (type === 'T') {
+totalCostDisplay = `
+End User: $${data.chargedByEndUser.toFixed(2)}<br>
+Pharmacy: $${data.chargedByPharmacy.toFixed(2)}
+`;
+}
+
+return `
+<tr class="issue-type-summary" data-ward="${ward}" data-issuetype="${type}">
+<td>${type} (${data.fullName})</td>
+<td>${orderNumber}</td>
+<td>${issuedItemQty}</td>
+<td>${itemCodeCount}</td>
+<td>${avgOrdersPerDay}</td>
+<td>${avgItemsPerOrder}</td>
+<td>${type === 'T' ? totalCostDisplay : `$${data.totalCost.toFixed(2)}`}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+function generateIssueTypeDetails(ward, issueType) {
+// Filter data for this ward and issue type
+const wardIssueData = transactionData.filter(r => r.ward === ward && r.issueType === issueType);
+
+// Aggregate Item Codes
+const itemCodeMap = {};
+wardIssueData.forEach(r => {
+const code = r.itemCode;
+if (!itemCodeMap[code]) {
+itemCodeMap[code] = {
+itemFullName: r.itemFullName,
+unitPrice: r.unitPrice,
+totalQty: 0,
+orderCount: 0,
+totalCost: 0,
+chargedByPharmacy: 0,
+chargedByEndUser: 0,
+uom: r.uom
+};
+}
+itemCodeMap[code].totalQty += r.qty;
+itemCodeMap[code].orderCount += 1;
+itemCodeMap[code].totalCost += r.unitPrice * r.qty;
+
+if (issueType === 'T') {
+if (r.chargedBy === 'pharmacy') {
+itemCodeMap[code].chargedByPharmacy += r.unitPrice * r.qty;
+} else if (r.chargedBy === 'end user') {
+itemCodeMap[code].chargedByEndUser += r.unitPrice * r.qty;
+}
+}
+});
+
+// Calculate statistics
+for (let code in itemCodeMap) {
+const data = itemCodeMap[code];
+data.avgUsagePerDay = (data.totalQty / Math.max(currentDateRangeDays, 1)).toFixed(2);
+data.avgOrderFrequency = data.orderCount > 0 ? (currentDateRangeDays / data.orderCount).toFixed(2) : '0.00';
+}
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('issue-type-details');
+detailsRow.setAttribute('data-parent-ward', ward);
+detailsRow.setAttribute('data-parent-issuetype', issueType);
+detailsRow.innerHTML = `
+<td colspan="7">
+<table class="item-code-details-table">
+<thead>
+<tr>
+<th>Item Code</th>
+<th>Item Full Name</th>
+<th>Unit Price</th>
+<th>Total Quantity</th>
+<th>Avg Daily Quantity</th>
+<th>Order Frequency / Period</th>
+<th>Avg Order Frequency (Days)</th>
+<th>Total Cost</th>
+<th>UOM</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(itemCodeMap).sort().map(code => {
+const data = itemCodeMap[code];
+let totalCostDisplay = `$${data.totalCost.toFixed(2)}`;
+
+if (issueType === 'T') {
+totalCostDisplay = `
+End User: $${data.chargedByEndUser.toFixed(2)}<br>
+Pharmacy: $${data.chargedByPharmacy.toFixed(2)}
+`;
+}
+
+return `
+<tr class="item-code-summary" data-itemcode="${code}">
+<td>${code}</td>
+<td>${data.itemFullName}</td>
+<td>$${data.unitPrice.toFixed(2)}</td>
+<td>${data.totalQty.toFixed(2)}</td>
+<td>${data.avgUsagePerDay}</td>
+<td>${data.orderCount}</td>
+<td>${data.avgOrderFrequency}</td>
+<td>${issueType === 'T' ? totalCostDisplay : `$${data.totalCost.toFixed(2)}`}</td>
+<td>${data.uom}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+function generateItemCodeDetails(itemCode) {
+// Filter data for this item code
+const itemData = transactionData.filter(r => r.itemCode === itemCode);
+
+// Aggregate by month
+const monthUsageMap = {};
+itemData.forEach(r => {
+const monthKey = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+if (!monthUsageMap[monthKey]) {
+monthUsageMap[monthKey] = {
+usage: 0,
+orders: 0,
+totalCost: 0,
+uom: r.uom
+};
+}
+monthUsageMap[monthKey].usage += r.qty;
+monthUsageMap[monthKey].orders += 1;
+monthUsageMap[monthKey].totalCost += r.unitPrice * r.qty;
+});
+
+// Calculate monthly statistics
+for (let month in monthUsageMap) {
+monthUsageMap[month].avgUsage = (monthUsageMap[month].usage / currentDateRangeDays).toFixed(2);
+monthUsageMap[month].avgOrderFrequency = monthUsageMap[month].orders > 0 ? (currentDateRangeDays / monthUsageMap[month].orders).toFixed(2) : '0.00';
+}
+
+// Create details row
+const detailsRow = document.createElement('tr');
+detailsRow.classList.add('item-code-details');
+detailsRow.setAttribute('data-parent-itemcode', itemCode);
+detailsRow.innerHTML = `
+<td colspan="9">
+<table class="monthly-usage-table">
+<thead>
+<tr>
+<th>Month</th>
+<th>Total Usage</th>
+<th>Avg Daily Usage</th>
+<th>Order Count</th>
+<th>Order Frequency</th>
+<th>Avg Order Frequency (Days)</th>
+<th>Total Cost</th>
+<th>UOM</th>
+</tr>
+</thead>
+<tbody>
+${Object.keys(monthUsageMap).sort().map(month => {
+const data = monthUsageMap[month];
+return `
+<tr class="month-details">
+<td>${formatMonthDisplay(month)}</td>
+<td>${data.usage.toFixed(2)}</td>
+<td>${data.avgUsage}</td>
+<td>${data.orders}</td>
+<td>${data.orders}</td>
+<td>${data.avgOrderFrequency}</td>
+<td>$${data.totalCost.toFixed(2)}</td>
+<td>${data.uom}</td>
+</tr>
+`;
+}).join('')}
+</tbody>
+</table>
+</td>
+`;
+return detailsRow;
+}
+
+// Clear form
+function clearForm() {
+document.getElementById('searchType').value = 'ward';
+document.getElementById('itemCodeGroup').style.display = 'none';
+document.getElementById('itemCodes').value = '';
+$('#wards').val(['all']).trigger('change');
+
+const today = new Date();
+const oneMonthAgo = new Date(today);
+oneMonthAgo.setMonth(today.getMonth() - 1);
+
+document.getElementById('endDate').value = today.toISOString().split('T')[0];
+document.getElementById('startDate').value = oneMonthAgo.toISOString().split('T')[0];
+
+const tbody = document.querySelector('#resultsTable tbody');
+const thead = document.querySelector('#resultsTable thead');
+thead.innerHTML = '';
+tbody.innerHTML = '';
+}
+
+window.addEventListener('load', initializeApp);
+</script>
+</body>
+</html>
